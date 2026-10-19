@@ -1,0 +1,40 @@
+name: Release Zenith
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+jobs:
+  release:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.0
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+
+      - name: Install frontend dependencies
+        run: bun install
+
+      - name: Build and Release
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name || 'v3.10.0' }}
+          releaseName: "Zenith ${{ github.ref_name || 'v3.10.0' }}"
+          releaseBody: "### Zenith - Lightweight Dynamic Notch for Windows\n\n- Live WIB Time & precision synchronization\n- Live Synced Lyrics via LRCLIB & Audio Waveform Visualizer\n- Hardware Telemetry (Suhu, RAM, CPU, Battery, Jam)\n- Temporary Stash Shelf (Drag & Drop)\n- 3 Notch Modes: Smart, Fixed, Peek\n- Stripped heavy webviews for minimal memory footprint"
+          releaseDraft: false
+          prerelease: false

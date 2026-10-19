@@ -59,13 +59,13 @@
   },
   "bundle": {
     "active": true,
-    "createUpdaterArtifacts": true,
+    "createUpdaterArtifacts": false,
     "targets": "all",
-    "publisher": "Sehajveer Singh",
-    "copyright": "Copyright © 2026 Sehajveer Singh",
+    "publisher": "sepqqqq",
+    "copyright": "Copyright © 2026 sepqqqq",
     "category": "Utility",
-    "shortDescription": "A notch and dock for Windows",
-    "longDescription": "Bloom replaces the Windows taskbar with a dock and adds a notch for media, quick controls and status.",
+    "shortDescription": "Zenith - Dynamic Notch & HUD for Windows",
+    "longDescription": "Zenith is a lightweight dynamic notch with live lyrics, hardware telemetry, and temporary shelf.",
     "windows": {
       "webviewInstallMode": {
         "type": "embedBootstrapper"
@@ -81,11 +81,9 @@
   },
   "plugins": {
     "updater": {
-      "active": true,
-      "endpoints": [
-        "https://github.com/SehajveerSingh2005/bloom/releases/latest/download/latest.json"
-      ],
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDQzQTAzNTlBRUFFODRFMDUKUldRRlR1anFtaldnUThWRExWQ2ZDVmxhNGlFREFPYWZoV1BWbGdQNUxxdHpnbzZPbGh4SWxVMk0K"
+      "active": false,
+      "endpoints": [],
+      "pubkey": ""
     }
   }
 }
