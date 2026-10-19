@@ -229,7 +229,7 @@ export function CompactMediaPlayer({
 
 	const progressPercent = durationMs > 0 ? (displayPosition / durationMs) * 100 : 0;
 
-	// Live WIB Date & Time for Header (e.g. Sat 17 Oct 2026 19:13)
+	// Live WIB Date & Time for Header (e.g. Sat 17 Oct 2026 19:13:45)
 	const [headerDateTime, setHeaderDateTime] = useState(() => {
 		const now = new Date();
 		try {
@@ -240,9 +240,10 @@ export function CompactMediaPlayer({
 				year: "numeric",
 				timeZone: "Asia/Jakarta"
 			});
-			const tStr = now.toLocaleTimeString("id-ID", {
+			const tStr = now.toLocaleTimeString("en-GB", {
 				hour: "2-digit",
 				minute: "2-digit",
+				second: "2-digit",
 				hour12: false,
 				timeZone: "Asia/Jakarta"
 			});
@@ -263,9 +264,10 @@ export function CompactMediaPlayer({
 					year: "numeric",
 					timeZone: "Asia/Jakarta"
 				});
-				const tStr = now.toLocaleTimeString("id-ID", {
+				const tStr = now.toLocaleTimeString("en-GB", {
 					hour: "2-digit",
 					minute: "2-digit",
+					second: "2-digit",
 					hour12: false,
 					timeZone: "Asia/Jakarta"
 				});
@@ -311,15 +313,33 @@ export function CompactMediaPlayer({
 				artist_name: cleanArtist || artist
 			});
 
-			const res = await fetch(`https://lrclib.net/api/get?${q.toString()}`, {
-				headers: { "User-Agent": "Bloom/3.10" }
+			let data = null;
+			let res = await fetch(`https://lrclib.net/api/get?${q.toString()}`, {
+				headers: { "User-Agent": "Zenith/3.10" }
 			});
 
-			if (!res.ok) {
+			if (res.ok) {
+				data = await res.json();
+			} else {
+				// Fallback search
+				const searchRes = await fetch(
+					`https://lrclib.net/api/search?q=${encodeURIComponent((cleanTrack || track) + " " + (cleanArtist || artist))}`,
+					{
+						headers: { "User-Agent": "Zenith/3.10" }
+					}
+				);
+				if (searchRes.ok) {
+					const searchResults = await searchRes.json();
+					if (Array.isArray(searchResults) && searchResults.length > 0) {
+						data = searchResults.find((r: any) => r.syncedLyrics || r.plainLyrics) || searchResults[0];
+					}
+				}
+			}
+
+			if (!data) {
 				throw new Error("Lirik belum tersedia");
 			}
 
-			const data = await res.json();
 			let lines: LyricLine[] = [];
 			let isSynced = false;
 
@@ -345,11 +365,12 @@ export function CompactMediaPlayer({
 		}
 	}, [mediaInfo.title, mediaInfo.artist]);
 
+	// Auto-fetch lyrics as soon as track is loaded
 	useEffect(() => {
-		if (showLyrics) {
+		if (mediaInfo.title) {
 			fetchLyrics();
 		}
-	}, [showLyrics, fetchLyrics]);
+	}, [mediaInfo.title, mediaInfo.artist, fetchLyrics]);
 
 	// Active lyric line index based on current playback ms
 	const activeLyricIndex = useMemo(() => {
@@ -453,6 +474,27 @@ export function CompactMediaPlayer({
 						)}
 					</div>
 					<span className="cmp-time">{formatRemaining(displayPosition, durationMs)}</span>
+				</div>
+			)}
+
+			{/* Live Active Lyric Line Preview */}
+			{lyrics?.lines && lyrics.lines.length > 0 && activeLyricIndex >= 0 && (
+				<div
+					className="cmp-active-lyric-preview"
+					onClick={(e) => {
+						e.stopPropagation();
+						setShowLyrics((prev) => !prev);
+					}}
+					title="Klik untuk buka lirik lengkap"
+				>
+					<span className="cmp-active-lyric-text">
+						"{lyrics.lines[activeLyricIndex]?.text}"
+					</span>
+					{lyrics.lines[activeLyricIndex + 1] && (
+						<span className="cmp-next-lyric-text">
+							{lyrics.lines[activeLyricIndex + 1]?.text}
+						</span>
+					)}
 				</div>
 			)}
 

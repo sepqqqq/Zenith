@@ -365,13 +365,14 @@ fn main() {
                 // Initialize before the scan so its results are actually stored.
                 let _ = crate::state::INSTALLED_APPS_CACHE.set(std::sync::Mutex::new(Vec::new()));
             }
-            setup_thumbnail_capture(app.handle().clone());
-            trigger_app_scan();
+            // Lightweight Zenith: disabled heavy dock thumbnail capture, app scan, taskbar hook, and WASAPI audio capture
+            // setup_thumbnail_capture(app.handle().clone());
+            // trigger_app_scan();
             let tx = setup_system_worker(app.handle().clone());
             let _ = COMMAND_SENDER.set(tx.clone());
             services::setup_keyboard_hook(app.handle().clone());
-            setup_taskbar_hook();
-            setup_audio_visualization(app.handle().clone());
+            // setup_taskbar_hook();
+            // setup_audio_visualization(app.handle().clone());
             setup_settings_watcher(app.handle().clone());
             diagnostics::record("services_ready", "hooks and settings watcher initialized");
             wifi::setup_wifi_notifications(app.handle().clone());
@@ -411,16 +412,16 @@ fn main() {
             {
                 use tauri::menu::{Menu, MenuItem};
                 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
-                let quit_item = MenuItem::with_id(app, "quit", "Quit Bloom", true, None::<&str>)?;
+                let quit_item = MenuItem::with_id(app, "quit", "Quit Zenith", true, None::<&str>)?;
                 let restart_item =
-                    MenuItem::with_id(app, "restart", "Restart Bloom", true, None::<&str>)?;
+                    MenuItem::with_id(app, "restart", "Restart Zenith", true, None::<&str>)?;
                 let settings_item =
                     MenuItem::with_id(app, "settings", "Open Settings", true, None::<&str>)?;
                 let menu = Menu::with_items(app, &[&settings_item, &restart_item, &quit_item])?;
                 let ah = app.handle().clone();
                 TrayIconBuilder::new()
                     .icon(app.default_window_icon().unwrap().clone())
-                    .tooltip("Bloom")
+                    .tooltip("Zenith")
                     .menu(&menu)
                     .on_menu_event(move |_, event| match event.id().as_ref() {
                         "quit" => {

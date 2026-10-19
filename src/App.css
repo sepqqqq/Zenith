@@ -2584,6 +2584,50 @@ img {
 	100% { transform: rotate(360deg); }
 }
 
+.cmp-active-lyric-preview {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	width: 100%;
+	padding: 5px 10px;
+	margin: 4px 0 2px 0;
+	background: rgba(255, 255, 255, 0.05);
+	border: 1px solid rgba(255, 255, 255, 0.08);
+	border-radius: 8px;
+	cursor: pointer;
+	text-align: center;
+	transition: all 0.2s ease;
+}
+
+.cmp-active-lyric-preview:hover {
+	background: rgba(255, 255, 255, 0.1);
+	border-color: rgba(74, 222, 128, 0.3);
+}
+
+.cmp-active-lyric-text {
+	font-size: 12.5px;
+	font-weight: 600;
+	color: #ffffff;
+	text-shadow: 0 0 10px rgba(74, 222, 128, 0.4);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	max-width: 95%;
+	line-height: 1.3;
+}
+
+.cmp-next-lyric-text {
+	font-size: 10.5px;
+	color: rgba(255, 255, 255, 0.45);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	max-width: 90%;
+	margin-top: 1px;
+	line-height: 1.2;
+}
+
 /* Quick Notch Mode Selector & Context Menu */
 .notch-mode-context-menu {
 	position: absolute;

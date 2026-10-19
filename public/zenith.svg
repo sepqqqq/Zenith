@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <linearGradient id="zenithGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00F2FE" />
+      <stop offset="50%" stop-color="#4FACFE" />
+      <stop offset="100%" stop-color="#4ADE80" />
+    </linearGradient>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#151A22" />
+      <stop offset="100%" stop-color="#0A0D12" />
+    </linearGradient>
+    <filter id="neonGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="10" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+  <rect width="512" height="512" rx="128" fill="url(#bgGrad)" stroke="#1E293B" stroke-width="8" />
+  <g filter="url(#neonGlow)">
+    <!-- Top Horizontal Bar -->
+    <path d="M 120 150 L 392 150 L 372 205 L 175 205 Z" fill="url(#zenithGrad)" />
+    <!-- Diagonal Slash -->
+    <path d="M 372 170 L 150 345 L 180 345 L 392 170 Z" fill="url(#zenithGrad)" opacity="0.4" />
+    <path d="M 350 200 L 180 335 L 215 335 L 385 200 Z" fill="url(#zenithGrad)" />
+    <!-- Bottom Horizontal Bar -->
+    <path d="M 120 362 L 392 362 L 337 310 L 140 310 Z" fill="url(#zenithGrad)" />
+  </g>
+</svg>

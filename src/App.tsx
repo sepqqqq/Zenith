@@ -15,14 +15,8 @@ import {
 import "./App.css";
 import { initTheme } from "./theme";
 import {
-	PlayIcon,
-	PauseIcon,
-	SkipBackIcon,
-	SkipForwardIcon,
 	VolumeLowIcon,
-	VolumeHighIcon,
-	MusicNoteIcon,
-	HeadphonesIcon
+	MusicNoteIcon
 } from "./icons";
 import { CompactMediaPlayer } from "./CompactMediaPlayer";
 import { useWeather } from "./hooks/useWeather";
@@ -967,7 +961,7 @@ function App() {
 		() => localStorage.getItem("bloom-corners-enabled") === "true"
 	);
 	const [mediaLayout, setMediaLayout] = useState<"classic" | "compact">(
-		() => (localStorage.getItem("bloom-media-layout") as "classic" | "compact") || "classic"
+		() => (localStorage.getItem("bloom-media-layout") as "classic" | "compact") || "compact"
 	);
 	const [compactVolumeExpanded, setCompactVolumeExpanded] = useState(false);
 
@@ -2060,7 +2054,7 @@ function App() {
 			const now = new Date();
 			try {
 				setTime(
-					now.toLocaleTimeString("id-ID", {
+					now.toLocaleTimeString("en-GB", {
 						timeZone: "Asia/Jakarta",
 						hour: "2-digit",
 						minute: "2-digit",
@@ -2069,7 +2063,7 @@ function App() {
 				);
 			} catch {
 				setTime(
-					now.toLocaleTimeString([], {
+					now.toLocaleTimeString("en-GB", {
 						hour: "2-digit",
 						minute: "2-digit",
 						hour12: !timeFormat24h
@@ -2912,7 +2906,13 @@ function App() {
 					onClick={(e) => {
 						e.stopPropagation();
 						if (showNotchModeMenu) setShowNotchModeMenu(false);
-						if (!isOpen) openNotch(openingPanel());
+						if (!isOpen) {
+							if (mediaInfo.has_media && isPlaying) {
+								openNotch("music");
+							} else {
+								openNotch(openingPanel());
+							}
+						}
 					}}
 					onContextMenu={(e) => {
 						e.preventDefault();
@@ -3030,256 +3030,36 @@ function App() {
 											exit={{ opacity: 0, scale: 0.98, transition: { duration: 0.1 } }}
 											transition={{ type: "spring", stiffness: 500, damping: 30 }}
 										>
-											{mediaLayout === "compact" ? (
-												<CompactMediaPlayer
-													mediaInfo={mediaInfo}
-													albumArtUrl={albumArtUrl}
-													albumArtKey={albumArtKey}
-													isPlaying={isPlaying}
-													volume={displayVolume}
-													volumeExpanded={compactVolumeExpanded}
-													onVolumeExpandedChange={setCompactVolumeExpanded}
-													onTogglePlayPause={togglePlayPause}
-													onVolumeChange={handleVolumeChange}
-													prevFront={prevFront}
-													prevBack={prevBack}
-													nextFront={nextFront}
-													nextBack={nextBack}
-													onAnimatePrev={animatePrev}
-													onAnimateNext={animateNext}
-													onLayoutChange={(layout) => {
-														setMediaLayout(layout);
-														localStorage.setItem("bloom-media-layout", layout);
-														invoke("save_setting", {
-															key: "bloom-media-layout",
-															value: layout
-														}).catch(console.error);
-														window.dispatchEvent(
-															new CustomEvent("settings-changed", {
-																detail: { key: "media-layout", value: layout }
-															})
-														);
-													}}
-												/>
-											) : (
-												<div className="compact-premium-layout">
-													<div className="album-art-section">
-														<motion.div
-															className="premium-album-art"
-															whileHover={{ scale: 1.05 }}
-															whileTap={{ scale: 0.95 }}
-															onClick={(e) => {
-																e.stopPropagation();
-																setMediaLayout("compact");
-																localStorage.setItem("bloom-media-layout", "compact");
-																invoke("save_setting", {
-																	key: "bloom-media-layout",
-																	value: "compact"
-																}).catch(console.error);
-																window.dispatchEvent(
-																	new CustomEvent("settings-changed", {
-																		detail: { key: "media-layout", value: "compact" }
-																	})
-																);
-															}}
-															style={{ cursor: "pointer" }}
-														>
-															<AnimatePresence mode="wait" initial={false}>
-																{albumArtUrl ? (
-																	<motion.img
-																		key={`art-${albumArtKey}`}
-																		src={albumArtUrl}
-																		alt="Art"
-																		initial={{ rotateY: 90, opacity: 0 }}
-																		animate={{ rotateY: 0, opacity: 1 }}
-																		exit={{ rotateY: -90, opacity: 0 }}
-																		transition={{ duration: 0.3, ease: "easeInOut" }}
-																		style={{ width: "100%", height: "100%", objectFit: "cover" }}
-																	/>
-																) : (
-																	<motion.div
-																		key="placeholder"
-																		className="art-placeholder-mini"
-																		initial={{ rotateY: 90, opacity: 0 }}
-																		animate={{ rotateY: 0, opacity: 1 }}
-																		exit={{ rotateY: -90, opacity: 0 }}
-																		transition={{ duration: 0.3, ease: "easeInOut" }}
-																	>
-																		<MusicNoteIcon size={32} className="music-placeholder-svg" />
-																	</motion.div>
-																)}
-															</AnimatePresence>
-														</motion.div>
-													</div>
-
-													<div className="metadata-controls-section-middle">
-														<div className="track-header-row">
-															<div className="track-info-middle">
-																<TitleMarquee title={mediaInfo.title} />
-																<span className="premium-artist">{mediaInfo.artist}</span>
-															</div>
-															<div className="header-visualizer-wrap">
-																<div className="header-visualizer">
-																	<Visualizer isPlaying={isPlaying} bars={5} height={18} />
-																</div>
-																<motion.button
-																	className="classic-audio-output-btn"
-																	onClick={(e) => {
-																		e.stopPropagation();
-																		invoke("open_sound_settings").catch(() => {});
-																	}}
-																	whileTap={{ scale: 0.9 }}
-																	title="Audio Output"
-																>
-																	<HeadphonesIcon size={20} style={{ opacity: 0.5 }} />
-																</motion.button>
-															</div>
-														</div>
-
-														<div className="controls-row-sleek">
-															<motion.button
-																className="sleek-btn previous-btn"
-																onClick={(e) => {
-																	e.stopPropagation();
-																	animatePrev();
-																}}
-																whileHover={{ scale: 1.2 }}
-																whileTap={{ scale: 0.9 }}
-																transition={{ type: "spring", stiffness: 400, damping: 25 }}
-															>
-																<div
-																	style={{
-																		position: "relative",
-																		width: 32,
-																		height: 16,
-																		overflow: "hidden"
-																	}}
-																>
-																	<motion.div
-																		animate={prevBack}
-																		style={{
-																			position: "absolute",
-																			inset: 0,
-																			display: "flex",
-																			alignItems: "center",
-																			justifyContent: "center"
-																		}}
-																	>
-																		<SkipBackIcon size={32} />
-																	</motion.div>
-																	<motion.div
-																		animate={prevFront}
-																		style={{
-																			position: "absolute",
-																			inset: 0,
-																			display: "flex",
-																			alignItems: "center",
-																			justifyContent: "center"
-																		}}
-																	>
-																		<SkipBackIcon size={32} />
-																	</motion.div>
-																</div>
-															</motion.button>
-
-															<motion.button
-																className="sleek-btn play-pause-btn-floating"
-																onClick={(e) => {
-																	e.stopPropagation();
-																	togglePlayPause();
-																}}
-																whileHover={{ scale: 1.2 }}
-																whileTap={{ scale: 0.95 }}
-																transition={{ type: "spring", stiffness: 400, damping: 25 }}
-															>
-																<AnimatePresence mode="wait" initial={false}>
-																	<motion.div
-																		key={isPlaying ? "pause" : "play"}
-																		initial={{ opacity: 0, scale: 0.8 }}
-																		animate={{ opacity: 1, scale: 1 }}
-																		exit={{ opacity: 0, scale: 0.8 }}
-																		transition={{ duration: 0.15 }}
-																		style={{
-																			display: "flex",
-																			alignItems: "center",
-																			justifyContent: "center"
-																		}}
-																	>
-																		{isPlaying ? <PauseIcon size={26} /> : <PlayIcon size={26} />}
-																	</motion.div>
-																</AnimatePresence>
-															</motion.button>
-
-															<motion.button
-																className="sleek-btn next-btn"
-																onClick={(e) => {
-																	e.stopPropagation();
-																	animateNext();
-																}}
-																whileHover={{ scale: 1.2 }}
-																whileTap={{ scale: 0.9 }}
-																transition={{ type: "spring", stiffness: 400, damping: 25 }}
-															>
-																<div
-																	style={{
-																		position: "relative",
-																		width: 32,
-																		height: 16,
-																		overflow: "hidden"
-																	}}
-																>
-																	<motion.div
-																		animate={nextBack}
-																		style={{
-																			position: "absolute",
-																			inset: 0,
-																			display: "flex",
-																			alignItems: "center",
-																			justifyContent: "center"
-																		}}
-																	>
-																		<SkipForwardIcon size={32} />
-																	</motion.div>
-																	<motion.div
-																		animate={nextFront}
-																		style={{
-																			position: "absolute",
-																			inset: 0,
-																			display: "flex",
-																			alignItems: "center",
-																			justifyContent: "center"
-																		}}
-																	>
-																		<SkipForwardIcon size={32} />
-																	</motion.div>
-																</div>
-															</motion.button>
-														</div>
-
-														<div className="volume-slider-container">
-															<VolumeLowIcon size={12} style={{ opacity: 0.5 }} />
-															<div className="slider-track-premium">
-																<input
-																	type="range"
-																	min="0"
-																	max="1"
-																	step="0.01"
-																	value={displayVolume}
-																	onChange={(e) => handleVolumeChange(parseFloat(e.target.value))}
-																	onPointerDown={(e) => e.stopPropagation()}
-																	onClick={(e) => e.stopPropagation()}
-																	className="premium-slider"
-																/>
-																<div
-																	className="slider-progress-fill"
-																	style={{ width: `${displayVolume * 100}%` }}
-																/>
-															</div>
-															<VolumeHighIcon size={14} style={{ opacity: 0.5 }} />
-														</div>
-													</div>
-												</div>
-											)}
+											<CompactMediaPlayer
+												mediaInfo={mediaInfo}
+												albumArtUrl={albumArtUrl}
+												albumArtKey={albumArtKey}
+												isPlaying={isPlaying}
+												volume={displayVolume}
+												volumeExpanded={compactVolumeExpanded}
+												onVolumeExpandedChange={setCompactVolumeExpanded}
+												onTogglePlayPause={togglePlayPause}
+												onVolumeChange={handleVolumeChange}
+												prevFront={prevFront}
+												prevBack={prevBack}
+												nextFront={nextFront}
+												nextBack={nextBack}
+												onAnimatePrev={animatePrev}
+												onAnimateNext={animateNext}
+												onLayoutChange={(layout) => {
+													setMediaLayout(layout);
+													localStorage.setItem("bloom-media-layout", layout);
+													invoke("save_setting", {
+														key: "bloom-media-layout",
+														value: layout
+													}).catch(console.error);
+													window.dispatchEvent(
+														new CustomEvent("settings-changed", {
+															detail: { key: "media-layout", value: layout }
+														})
+													);
+												}}
+											/>
 										</motion.div>
 									) : (
 										<motion.div
