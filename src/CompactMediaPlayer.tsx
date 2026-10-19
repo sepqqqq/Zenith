@@ -10,7 +10,6 @@ import {
 	SkipForwardIcon,
 	MusicNoteIcon,
 	SpeakerIcon,
-	HeadphonesIcon,
 	VolumeLowIcon,
 	VolumeHighIcon
 } from "./icons";
