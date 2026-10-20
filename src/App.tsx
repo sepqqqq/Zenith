@@ -280,30 +280,86 @@ export default function App() {
     }
   }, []);
 
-  // Music progress timer simulation when no live Windows player active
+  interface LyricLine {
+    time: number;
+    text: string;
+  }
+
+  const [lyricLines, setLyricLines] = useState<LyricLine[]>([
+    { text: "Memuat lirik...", time: 0 }
+  ]);
+
+  // Fetch real synced lyrics dynamically from LRCLIB API whenever track changes
   useEffect(() => {
-    if (!isPlaying || hasRealMedia) return;
+    if (!trackTitle) return;
+    let active = true;
+
+    const fetchLyrics = async () => {
+      try {
+        const cleanTitle = trackTitle.replace(/\s*\(feat\..*?\)/i, "").replace(/\s*-\s*.*$/, "").trim();
+        const cleanArtist = trackArtist.replace(/\s*—\s*.*$/, "").split(/[,&]/)[0].trim();
+
+        let res = await fetch(
+          `https://lrclib.net/api/get?track_name=${encodeURIComponent(cleanTitle)}&artist_name=${encodeURIComponent(cleanArtist)}`
+        );
+        let data: any = null;
+        if (res.ok) {
+          data = await res.json();
+        } else {
+          const sRes = await fetch(
+            `https://lrclib.net/api/search?q=${encodeURIComponent(cleanTitle + " " + cleanArtist)}`
+          );
+          if (sRes.ok) {
+            const list = await sRes.json();
+            if (Array.isArray(list) && list.length > 0) data = list[0];
+          }
+        }
+
+        if (!data || !active) return;
+
+        if (data.syncedLyrics) {
+          const parsed: LyricLine[] = [];
+          for (const line of data.syncedLyrics.split("\n")) {
+            const m = line.match(/\[(\d+):(\d+(?:\.\d+)?)\]\s*(.*)/);
+            if (m) {
+              const sec = parseInt(m[1], 10) * 60 + parseFloat(m[2]);
+              const txt = m[3].trim();
+              if (txt) parsed.push({ time: sec, text: txt });
+            }
+          }
+          if (parsed.length > 0 && active) {
+            setLyricLines(parsed);
+            return;
+          }
+        }
+
+        if (data.plainLyrics && active) {
+          const raw = data.plainLyrics.split("\n").map((l: string) => l.trim()).filter(Boolean);
+          const dur = totalSec > 0 ? totalSec : 200;
+          const step = dur / Math.max(1, raw.length);
+          setLyricLines(raw.map((txt: string, idx: number) => ({ time: idx * step, text: txt })));
+        }
+      } catch {}
+    };
+
+    fetchLyrics();
+    return () => { active = false; };
+  }, [trackTitle, trackArtist, totalSec]);
+
+  // Real-time music progress clock (always ticks when isPlaying is true)
+  useEffect(() => {
+    if (!isPlaying) return;
     const interval = setInterval(() => {
-      setCurrentSec((prev) => (prev >= totalSec ? 0 : prev + 1));
+      setCurrentSec((prev) => (totalSec > 0 && prev >= totalSec ? totalSec : prev + 1));
     }, 1000);
     return () => clearInterval(interval);
-  }, [isPlaying, hasRealMedia, totalSec]);
+  }, [isPlaying, totalSec]);
 
   const formatTime = (s: number) => {
     const m = Math.floor(s / 60);
     const rem = Math.floor(s % 60);
     return `${String(m).padStart(2, "0")}:${String(rem).padStart(2, "0")}`;
   };
-
-  // Synced lyrics calculation
-  const lyricLines = [
-    { text: "Morning folds the city light", time: 0 },
-    { text: "into paper birds tonight", time: 18 },
-    { text: "If I could be by your side", time: 35 },
-    { text: "I'd give you all my seasons", time: 52 },
-    { text: "every summer, every rain", time: 74 },
-    { text: "calling out your name", time: 95 }
-  ];
 
   let activeLyricIdx = 0;
   lyricLines.forEach((item, idx) => {
