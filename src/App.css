@@ -82,10 +82,10 @@ body, html {
 
 /* STATE SIZES */
 .notch[data-state="resting"] {
-  width: 190px;
-  height: 36px;
-  border-bottom-left-radius: 18px;
-  border-bottom-right-radius: 18px;
+  width: 240px;
+  height: 68px;
+  border-bottom-left-radius: 20px;
+  border-bottom-right-radius: 20px;
 }
 
 .notch[data-state="closed"] {
@@ -97,42 +97,42 @@ body, html {
 
 .notch[data-state="music"] {
   width: 440px;
-  height: 146px;
+  height: 168px;
   border-bottom-left-radius: 26px;
   border-bottom-right-radius: 26px;
 }
 
 .notch[data-state="lyrics"] {
   width: 540px;
-  height: 148px;
+  height: 168px;
   border-bottom-left-radius: 26px;
   border-bottom-right-radius: 26px;
 }
 
 .notch[data-state="shelf"] {
   width: 440px;
-  height: 142px;
+  height: 165px;
   border-bottom-left-radius: 26px;
   border-bottom-right-radius: 26px;
 }
 
 .notch[data-state="headphones"] {
-  width: 330px;
-  height: 62px;
+  width: 340px;
+  height: 86px;
   border-bottom-left-radius: 22px;
   border-bottom-right-radius: 22px;
 }
 
 .notch[data-state="charging"] {
-  width: 330px;
-  height: 62px;
+  width: 340px;
+  height: 86px;
   border-bottom-left-radius: 22px;
   border-bottom-right-radius: 22px;
 }
 
 .notch[data-state="timer"] {
   width: 340px;
-  height: 64px;
+  height: 88px;
   border-bottom-left-radius: 22px;
   border-bottom-right-radius: 22px;
 }
@@ -805,6 +805,45 @@ body, html {
 }
 
 .menu-btn.active {
+  background: var(--accent-green);
+  color: #000;
+}
+
+/* EXPANDED MODE QUICK SWITCHER */
+.expanded-mode-bar {
+  position: absolute;
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(18, 20, 26, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  padding: 2px 6px;
+  z-index: 50;
+  backdrop-filter: blur(8px);
+}
+
+.quick-mode-btn {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.quick-mode-btn:hover {
+  color: #fff;
+}
+
+.quick-mode-btn.active {
   background: var(--accent-green);
   color: #000;
 }

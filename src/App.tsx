@@ -2,10 +2,14 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { open as openFileDialog } from "@tauri-apps/plugin-dialog";
+import { openPath } from "@tauri-apps/plugin-opener";
 import { createRegionSender, type RegionRect } from "./windowRegion";
+import { useSettingsSync } from "./hooks/useSettingsSync";
 import "./App.css";
 
-type IslandState = "resting" | "closed" | "music" | "lyrics" | "shelf" | "headphones" | "charging" | "timer";
+type ExpandedMode = "music" | "lyrics" | "shelf" | "resting" | "headphones" | "charging" | "timer";
+type IslandState = "closed" | ExpandedMode;
 
 interface MediaInfo {
   title: string;
@@ -22,16 +26,41 @@ interface ShelfItem {
   id: string;
   name: string;
   size: string;
+  path?: string;
 }
 
 export function Visualizer(_props?: any) {
   return null;
 }
 
+function formatBytes(bytes: number): string {
+  if (bytes === 0) return "0 B";
+  const k = 1024;
+  const sizes = ["B", "KB", "MB", "GB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
+}
+
 export default function App() {
-  const [state, setState] = useState<IslandState>("closed");
+  const [activeExpandedMode, setActiveExpandedMode] = useState<ExpandedMode>("music");
+  const [isHovered, setIsHovered] = useState<boolean>(false);
+  const [notchMode, setNotchMode] = useState<string>(() => localStorage.getItem("bloom-notch-mode") || "smart");
   const [showMenu, setShowMenu] = useState<boolean>(false);
   const notchRef = useRef<HTMLDivElement>(null);
+
+  // Sync settings for notch mode (smart, fixed, peek)
+  useSettingsSync({
+    "bloom-notch-mode": (val) => {
+      const mode = String(val);
+      setNotchMode(mode);
+      localStorage.setItem("bloom-notch-mode", mode);
+    }
+  });
+
+  // Effective visual state
+  // If notchMode is "fixed", it stays expanded in activeExpandedMode.
+  // If "smart" or "peek", it expands on hover and collapses to "closed" on mouse leave.
+  const state: IslandState = notchMode === "fixed" ? activeExpandedMode : isHovered ? activeExpandedMode : "closed";
 
   // Status values
   const [timeWib, setTimeWib] = useState<string>("14:00");
@@ -47,15 +76,27 @@ export default function App() {
   const [totalSec, setTotalSec] = useState<number>(196); // 03:16
   const [hasRealMedia, setHasRealMedia] = useState<boolean>(false);
 
-  // Focus Timer / Pomodoro
+  // Focus Timer
   const [timerSec, setTimerSec] = useState<number>(25 * 60);
   const [timerRunning, setTimerRunning] = useState<boolean>(false);
 
-  // Shelf state
-  const [shelfItems, setShelfItems] = useState<ShelfItem[]>([
-    { id: "1", name: "beach.jpg", size: "2.4 MB" },
-    { id: "2", name: "project.zip", size: "14.8 MB" }
-  ]);
+  // Shelf state with persistent storage
+  const [shelfItems, setShelfItems] = useState<ShelfItem[]>(() => {
+    try {
+      const saved = localStorage.getItem("bloom-shelf-items");
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return [
+      { id: "1", name: "beach.jpg", size: "2.4 MB" },
+      { id: "2", name: "project.zip", size: "14.8 MB" }
+    ];
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("bloom-shelf-items", JSON.stringify(shelfItems));
+    } catch {}
+  }, [shelfItems]);
 
   // Window Region Sender for click-through
   const regionSender = useRef<((rects: RegionRect[]) => void) | null>(null);
@@ -64,9 +105,8 @@ export default function App() {
     if (!notchRef.current) return;
     const rect = notchRef.current.getBoundingClientRect();
 
-    // Pad region by 36px horizontally and 20px vertically so concave ears & shadow are never clipped!
-    const padX = 36;
-    const padY = 20;
+    const padX = 40;
+    const padY = 24;
     const notchBox: RegionRect = {
       x: Math.max(0, Math.floor(rect.left - padX)),
       y: 0,
@@ -85,7 +125,6 @@ export default function App() {
       });
     }
 
-    // Inform Rust of current notch rect so mouse hook never locks window as click-through
     invoke("update_notch_rect", {
       rect: {
         x: Math.floor(rect.left),
@@ -102,7 +141,7 @@ export default function App() {
     }
   }, [showMenu]);
 
-  // Initialize Tauri window & region sender
+  // Initialize Tauri window & mouse hook event listener
   useEffect(() => {
     try {
       const win = getCurrentWebviewWindow();
@@ -115,23 +154,33 @@ export default function App() {
 
     const timer = setTimeout(updateWindowRegion, 100);
     window.addEventListener("resize", updateWindowRegion);
+
+    // Listen to Rust low-level mouse hook edge hover
+    let unlistenHover: any;
+    listen<boolean>("notch-edge-hover", (event) => {
+      if (notchMode !== "fixed") {
+        setIsHovered(Boolean(event.payload));
+      }
+    }).then((fn) => { unlistenHover = fn; });
+
     return () => {
       clearTimeout(timer);
       window.removeEventListener("resize", updateWindowRegion);
+      if (unlistenHover) unlistenHover();
     };
-  }, [updateWindowRegion]);
+  }, [updateWindowRegion, notchMode]);
 
   // Update region whenever state changes
   useEffect(() => {
     const t = setTimeout(updateWindowRegion, 50);
-    const t2 = setTimeout(updateWindowRegion, 550); // after spring finishes
+    const t2 = setTimeout(updateWindowRegion, 520);
     return () => {
       clearTimeout(t);
       clearTimeout(t2);
     };
   }, [state, showMenu, updateWindowRegion]);
 
-  // Real Windows Media Listener (Spotify, Chrome, YouTube, Media Player)
+  // Real Windows Media Listener (Spotify, Chrome, YouTube)
   useEffect(() => {
     let active = true;
     const setupMedia = async () => {
@@ -151,9 +200,8 @@ export default function App() {
             if (info.artwork && info.artwork.length > 0) {
               setAlbumArt(info.artwork[0]);
             }
-            // Auto open music mode when user starts playing on Windows
             if (info.is_playing) {
-              setState((prev) => (prev === "closed" ? "music" : prev));
+              setActiveExpandedMode("music");
             }
           }
         });
@@ -169,26 +217,6 @@ export default function App() {
     };
   }, []);
 
-  // Web Audio chime for timer finish
-  const playTimerChime = useCallback(() => {
-    try {
-      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-      if (!AudioCtx) return;
-      const ctx = new AudioCtx();
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = "sine";
-      osc.frequency.setValueAtTime(880, ctx.currentTime); // A5
-      osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.6);
-      gain.gain.setValueAtTime(0.3, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.6);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start();
-      osc.stop(ctx.currentTime + 0.6);
-    } catch {}
-  }, []);
-
   // Timer countdown
   useEffect(() => {
     if (!timerRunning) return;
@@ -196,14 +224,13 @@ export default function App() {
       setTimerSec((prev) => {
         if (prev <= 1) {
           setTimerRunning(false);
-          playTimerChime();
           return 0;
         }
         return prev - 1;
       });
     }, 1000);
     return () => clearInterval(interval);
-  }, [timerRunning, playTimerChime]);
+  }, [timerRunning]);
 
   // WIB Realtime Clock
   useEffect(() => {
@@ -302,21 +329,72 @@ export default function App() {
     setCurrentSec(0);
   };
 
-  // Notch click handler
-  const handleNotchClick = (e: React.MouseEvent) => {
-    const target = e.target as HTMLElement;
-    if (target.closest("button") || target.closest(".music-progress-bar") || target.closest(".shelf-dropzone")) {
-      return;
+  // Handle Drag & Drop for Shelf
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsHovered(true);
+    setActiveExpandedMode("shelf");
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const added: ShelfItem[] = [];
+      for (let i = 0; i < e.dataTransfer.files.length; i++) {
+        const file = e.dataTransfer.files[i];
+        added.push({
+          id: `${Date.now()}_${i}`,
+          name: file.name,
+          size: formatBytes(file.size),
+          path: (file as any).path || ""
+        });
+      }
+      setShelfItems((prev) => [...added, ...prev]);
     }
-    if (state === "closed" || state === "resting") {
-      setState("music");
-    } else if (state === "music") {
-      setState("lyrics");
-    } else if (state === "lyrics") {
-      setState("closed");
-    } else if (state === "timer") {
-      setState("closed");
+  };
+
+  const handleBrowseFiles = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      const selected = await openFileDialog({
+        multiple: true,
+        title: "Pilih file untuk Shelf"
+      });
+      if (selected && Array.isArray(selected)) {
+        const added: ShelfItem[] = selected.map((filePath, i) => {
+          const parts = filePath.split(/[/\\]/);
+          const name = parts[parts.length - 1] || "file";
+          return {
+            id: `${Date.now()}_${i}`,
+            name,
+            size: "File",
+            path: filePath
+          };
+        });
+        setShelfItems((prev) => [...added, ...prev]);
+      }
+    } catch {}
+  };
+
+  const handleOpenFile = async (item: ShelfItem) => {
+    if (item.path) {
+      try {
+        await openPath(item.path);
+      } catch {}
     }
+  };
+
+  // Notch Mouse Enter & Leave for Auto Expand / Shrink
+  const handleMouseEnter = () => {
+    setIsHovered(true);
+    invoke("set_notch_hovered", { hovered: true }).catch(() => {});
+  };
+
+  const handleMouseLeave = () => {
+    setIsHovered(false);
+    invoke("set_notch_hovered", { hovered: false }).catch(() => {});
   };
 
   return (
@@ -325,13 +403,10 @@ export default function App() {
         ref={notchRef}
         className="notch"
         data-state={state}
-        onClick={handleNotchClick}
-        onMouseEnter={() => {
-          invoke("set_notch_hovered", { hovered: true }).catch(() => {});
-        }}
-        onMouseLeave={() => {
-          invoke("set_notch_hovered", { hovered: false }).catch(() => {});
-        }}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
         onContextMenu={(e) => {
           e.preventDefault();
           setShowMenu((prev) => !prev);
@@ -383,8 +458,8 @@ export default function App() {
                   <img src={albumArt} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                 ) : (
                   <svg viewBox="0 0 24 24" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="12" cy="10" r="10"></circle>
-                    <circle cx="12" cy="10" r="3"></circle>
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <circle cx="12" cy="12" r="3"></circle>
                   </svg>
                 )}
               </div>
@@ -425,7 +500,7 @@ export default function App() {
                   className="btn-lyrics-toggle"
                   onClick={(e) => {
                     e.stopPropagation();
-                    setState("lyrics");
+                    setActiveExpandedMode("lyrics");
                   }}
                 >
                   <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -515,7 +590,7 @@ export default function App() {
             </div>
           </div>
 
-          {/* 5. SHELF */}
+          {/* 5. SHELF (DRAG & DROP FILES) */}
           <div className="ly ly-shelf">
             <div className="shelf-header">
               <span>FILE SHELF</span>
@@ -532,12 +607,16 @@ export default function App() {
             <div className="shelf-content-row">
               <div className="shelf-cards">
                 {shelfItems.map((item) => (
-                  <div key={item.id} className="shelf-card">
+                  <div
+                    key={item.id}
+                    className="shelf-card"
+                    onClick={() => handleOpenFile(item)}
+                    title={item.path ? `Klik untuk buka: ${item.path}` : "File"}
+                  >
                     <div className="shelf-card-icon">
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <rect x="3" y="3" width="18" height="18" rx="2" />
-                        <circle cx="8.5" cy="8.5" r="1.5" />
-                        <polyline points="21 15 16 10 5 21" />
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
                       </svg>
                     </div>
                     <div className="shelf-card-info">
@@ -559,19 +638,16 @@ export default function App() {
 
               <div
                 className="shelf-dropzone"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  const name = `file_${Date.now().toString().slice(-4)}.doc`;
-                  setShelfItems((prev) => [{ id: String(Date.now()), name, size: "1.2 MB" }, ...prev]);
-                }}
+                onClick={handleBrowseFiles}
+                title="Tarik file ke sini atau klik untuk browse"
               >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ color: "var(--muted)" }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ color: "var(--accent-cyan)" }}>
                   <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                   <polyline points="7 10 12 15 17 10"></polyline>
                   <line x1="12" y1="15" x2="12" y2="3"></line>
                 </svg>
-                <span style={{ fontSize: "11px", fontWeight: 600 }}>Drop files</span>
-                <span style={{ fontSize: "9px", color: "var(--muted)" }}>click to add test file</span>
+                <span style={{ fontSize: "11px", fontWeight: 600 }}>Tarik File Ke Sini</span>
+                <span style={{ fontSize: "9px", color: "var(--muted)" }}>atau klik untuk pilih</span>
               </div>
             </div>
           </div>
@@ -652,18 +728,33 @@ export default function App() {
               </button>
             </div>
           </div>
+
+          {/* QUICK BOTTOM MODE SWITCHER WHEN EXPANDED */}
+          {state !== "closed" && (
+            <div className="expanded-mode-bar" onClick={(e) => e.stopPropagation()}>
+              {(["music", "lyrics", "shelf", "resting", "headphones", "charging"] as ExpandedMode[]).map((m) => (
+                <button
+                  key={m}
+                  className={`quick-mode-btn ${activeExpandedMode === m ? "active" : ""}`}
+                  onClick={() => setActiveExpandedMode(m)}
+                >
+                  {m.toUpperCase()}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Floating State Selector Menu (Shown on right-click or toggle) */}
+      {/* Floating State Selector Menu (Shown on right-click) */}
       {showMenu && (
         <div className="desktop-switcher-menu" onClick={(e) => e.stopPropagation()}>
-          {(["resting", "closed", "music", "lyrics", "shelf", "headphones", "charging", "timer"] as IslandState[]).map((m) => (
+          {(["music", "lyrics", "shelf", "resting", "headphones", "charging", "timer"] as ExpandedMode[]).map((m) => (
             <button
               key={m}
-              className={`menu-btn ${state === m ? "active" : ""}`}
+              className={`menu-btn ${activeExpandedMode === m ? "active" : ""}`}
               onClick={() => {
-                setState(m);
+                setActiveExpandedMode(m);
                 setShowMenu(false);
               }}
             >

@@ -75,14 +75,24 @@ export function AboutTab({
 				<h1 className="about-title">Zenith</h1>
 				<p className="about-version">Version {appVersion}</p>
 				<p className="about-credit">
-					Made with <span className="about-heart">❤️</span> by{" "}
+					Developed by{" "}
 					<button
 						className="about-author"
-						onClick={() => openUrl("https://github.com/SehajveerSingh2005")}
-						title="sehaz on GitHub"
+						onClick={() => openUrl("https://github.com/sepqqqq")}
+						title="sepqqqq on GitHub"
 					>
 						<GithubIcon size={12} />
-						<span>sehaz</span>
+						<span>sepqqqq</span>
+					</button>
+				</p>
+				<p style={{ marginTop: "4px" }}>
+					<button
+						className="about-author"
+						onClick={() => openUrl("https://github.com/sepqqqq/Zenith")}
+						title="Zenith Repository"
+						style={{ fontSize: "11px", opacity: 0.8 }}
+					>
+						<span>github.com/sepqqqq/Zenith</span>
 					</button>
 				</p>
 			</div>
