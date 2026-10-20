@@ -2649,7 +2649,6 @@ fn update_main_interaction(
                 if drag_held && (in_notch_rect || in_top_span) {
                     is_click_interactive = true;
                 }
-            }
         }
     }
 
