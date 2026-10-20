@@ -1,6 +1,6 @@
 [package]
 name = "zenith"
-version = "3.10.2"
+version = "3.10.3"
 description = "A lightweight dynamic notch and HUD for Windows"
 authors = ["sepqqqq"]
 edition = "2021"

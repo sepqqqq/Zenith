@@ -2596,28 +2596,33 @@ fn update_main_interaction(
     let mut is_click_interactive = false;
     let main_rect_val = MAIN_WINDOW_RECT.lock().ok().and_then(|g| *g);
 
-    if let Some((win_pos, _)) = main_rect_val {
+    if let Some((win_pos, win_size)) = main_rect_val {
         if let Ok(region) = NOTCH_RECT.try_lock() {
-            if let Some(r) = *region {
-                let pad_x = (20.0 * scale) as i32;
-                let pad_y_bottom = (5.0 * scale) as i32;
-                // Hysteresis keeps the notch interactive a little past its
-                // bounds once grabbed, so removing the edge-forced
-                // interactivity doesn't reintroduce boundary flicker.
+            let (rx, rw, ry_top, ry_bottom) = if let Some(r) = *region {
+                let pad_x = (32.0 * scale) as i32;
+                let pad_y_bottom = (10.0 * scale) as i32;
                 let hyst = if MH_LAST_MAIN_IGNORE.load(Ordering::Relaxed) == 0 {
-                    (10.0 * scale) as i32
+                    (15.0 * scale) as i32
                 } else {
                     0
                 };
-                let rx = win_pos.x + (r.x as f64 * scale) as i32 - pad_x - hyst;
-                let rw = (r.width as f64 * scale) as i32 + (pad_x * 2) + (hyst * 2);
-                let ry_top = win_pos.y;
-                let ry_bottom = win_pos.y + (r.height as f64 * scale) as i32 + pad_y_bottom + hyst;
+                (
+                    win_pos.x + (r.x as f64 * scale) as i32 - pad_x - hyst,
+                    (r.width as f64 * scale) as i32 + (pad_x * 2) + (hyst * 2),
+                    win_pos.y,
+                    win_pos.y + (r.height as f64 * scale) as i32 + pad_y_bottom + hyst,
+                )
+            } else {
+                let def_w = (450.0 * scale) as i32;
+                let def_h = (150.0 * scale) as i32;
+                let mid_x = win_pos.x + (win_size.width as i32 / 2);
+                (mid_x - def_w / 2, def_w, win_pos.y, win_pos.y + def_h)
+            };
 
-                let in_notch_rect = cursor.x >= rx
-                    && cursor.x <= (rx + rw)
-                    && cursor.y >= ry_top
-                    && cursor.y <= ry_bottom;
+            let in_notch_rect = cursor.x >= rx
+                && cursor.x <= (rx + rw)
+                && cursor.y >= ry_top
+                && cursor.y <= ry_bottom;
 
                 // Approaching along the top edge keeps the window interactive
                 // while near the notch's horizontal span. This must stay
